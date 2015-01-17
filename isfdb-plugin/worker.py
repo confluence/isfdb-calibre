@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 from __future__ import (unicode_literals, division, absolute_import,
-                        print_function)
+						print_function)
 
 __license__   = 'GPL v3'
 __copyright__ = '2015, Xtina Schelin <xtina.schelin@gmail.com>'
@@ -21,279 +21,209 @@ import calibre_plugins.isfdb.config as cfg
 
 class Worker(Thread): # Get details
 
-    '''
-    Get book details from ISFDB book page in a separate thread.
-    '''
+	'''
+	Get book details from ISFDB book page in a separate thread.
+	'''
 
-    def __init__(self, url, result_queue, browser, log, relevance, plugin, timeout=20):
-        Thread.__init__(self)
-        self.daemon = True
-        self.url, self.result_queue = url, result_queue
-        self.log, self.timeout = log, timeout
-        self.relevance, self.plugin = relevance, plugin
-        self.browser = browser.clone_browser()
-        self.cover_url = self.isfdb_id = self.isbn = None
+	def __init__(self, url, result_queue, browser, log, relevance, plugin, timeout=20):
+		Thread.__init__(self)
+		self.daemon = True
+		self.url, self.result_queue = url, result_queue
+		self.log, self.timeout = log, timeout
+		self.relevance, self.plugin = relevance, plugin
+		self.browser = browser.clone_browser()
+		self.cover_url = self.isfdb_id = self.isbn = None
 
-    def run(self):
-        try:
-            self.get_details()
-        except:
-            self.log.exception('get_details failed for url: %r'%self.url)
+	def run(self):
+		try:
+			self.get_details()
+		except:
+			self.log.exception('get_details failed for url: %r'%self.url)
 
-    def get_details(self):
-        try:
-            self.log.info('ISFDB url: %r'%self.url)
-            raw = self.browser.open_novisit(self.url, timeout=self.timeout).read().strip()
-        except Exception as e:
-            if callable(getattr(e, 'getcode', None)) and \
-                    e.getcode() == 404:
-                self.log.error('URL malformed: %r'%self.url)
-                return
-            attr = getattr(e, 'args', [None])
-            attr = attr if attr else [None]
-            if isinstance(attr[0], socket.timeout):
-                msg = 'ISFDB.org timed out. Try again later.'
-                self.log.error(msg)
-            else:
-                msg = 'Failed to make details query: %r'%self.url
-                self.log.exception(msg)
-            return
+	def get_details(self):
+		try:
+			self.log.info('ISFDB url: %r'%self.url)
+			raw = self.browser.open_novisit(self.url, timeout=self.timeout).read().strip()
+		except Exception as e:
+			if callable(getattr(e, 'getcode', None)) and \
+					e.getcode() == 404:
+				self.log.error('URL malformed: %r'%self.url)
+				return
+			attr = getattr(e, 'args', [None])
+			attr = attr if attr else [None]
+			if isinstance(attr[0], socket.timeout):
+				msg = 'ISFDB.org timed out. Try again later.'
+				self.log.error(msg)
+			else:
+				msg = 'Failed to make details query: %r'%self.url
+				self.log.exception(msg)
+			return
 
-        raw = raw.decode('utf-8', errors='replace')
+		raw = raw.decode('utf-8', errors='replace')
 
-        if '<title>404 - ' in raw:
-            self.log.error('URL malformed: %r'%self.url)
-            return
+		if '<title>404 - ' in raw:
+			self.log.error('URL malformed: %r'%self.url)
+			return
 
-        try:
-            root = fromstring(clean_ascii_chars(raw))
-        except:
-            msg = 'Failed to parse ISFDB details page: %r'%self.url
-            self.log.exception(msg)
-            return
+		try:
+			root = fromstring(clean_ascii_chars(raw))
+		except:
+			msg = 'Failed to parse ISFDB details page: %r'%self.url
+			self.log.exception(msg)
+			return
 
-        self.parse_details(root)
+		self.parse_details(root)
 
-    def parse_details(self, root):
-        try:
-            isfdb_id = self.parse_isfdb_id(self.url)
-        except:
-            self.log.exception('Error parsing ISFDB ID for url: %r'%self.url)
-            isfdb_id = None
+	def parse_details(self, root):
+		try:
+			isfdb_id = self.parse_isfdb_id(self.url)
+		except:
+			self.log.exception('Error parsing ISFDB ID for url: %r'%self.url)
+			isfdb_id = None
 
-        try:
-            (title, series, series_index) = self.parse_title_series(root)
-        except:
-            self.log.exception('Error parsing title and series for url: %r'%self.url)
-            title = series = series_index = None
+		try:
+			(title) = self.parse_title(root)
+		except:
+			self.log.exception('Error parsing title for url: %r'%self.url)
+			title = None
 
-        try:
-            authors = self.parse_authors(root)
-        except:
-            self.log.exception('Error parsing authors for url: %r'%self.url)
-            authors = []
+		try:
+			authors = self.parse_authors(root)
+		except:
+			self.log.exception('Error parsing authors for url: %r'%self.url)
+			authors = []
 
-        if not title or not authors or not isfdb_id:
-            self.log.error('Could not find title/authors/ISFDB ID for %r'%self.url)
-            self.log.error('ISFDB: %r Title: %r Authors: %r' % (isfdb_id, title,
-                authors))
-            return
+		if not title or not authors or not isfdb_id:
+			self.log.error('Could not find title/authors/ISFDB ID for %r'%self.url)
+			self.log.error('ISFDB: %r Title: %r Authors: %r' % (isfdb_id, title,
+				authors))
+			return
 
-        mi = Metadata(title, authors)
-        if series:
-            mi.series = series
-            mi.series_index = series_index
-        mi.set_identifier('isfdb', isfdb_id)
-        self.isfdb_id = isfdb_id
+		mi = Metadata(title, authors)
+		mi.set_identifier('isfdb', isfdb_id)
+		self.isfdb_id = isfdb_id
 
-        try:
-            isbn = self.parse_isbn(root)
-            if isbn:
-                self.isbn = mi.isbn = isbn
-        except:
-            self.log.exception('Error parsing ISBN for url: %r'%self.url)
+		try:
+			isbn = self.parse_isbn(root)
+			if isbn:
+				self.isbn = mi.isbn = isbn
+		except:
+			self.log.exception('Error parsing ISBN for url: %r'%self.url)
 
-        try:
-            mi.comments = self.parse_comments(root)
-        except:
-            self.log.exception('Error parsing comments for url: %r'%self.url)
+		try:
+			mi.comments = self.parse_comments(root)
+		except:
+			self.log.exception('Error parsing comments for url: %r'%self.url)
 
-        try:
-            self.cover_url = self.parse_cover(root)
-        except:
-            self.log.exception('Error parsing cover for url: %r'%self.url)
-        mi.has_cover = bool(self.cover_url)
-        mi.cover_url = self.cover_url # This is purely so we can run a test for it!!!
+		try:
+			self.cover_url = self.parse_cover(root)
+		except:
+			self.log.exception('Error parsing cover for url: %r'%self.url)
+		mi.has_cover = bool(self.cover_url)
+		mi.cover_url = self.cover_url # This is purely so we can run a test for it!!!
 
-        try:
-            mi.publisher = self.parse_publisher(root)
-        except:
-            self.log.exception('Error parsing publisher for url: %r'%self.url)
+		try:
+			mi.publisher = self.parse_publisher(root)
+		except:
+			self.log.exception('Error parsing publisher for url: %r'%self.url)
 
-        try:
-            mi.pubdate = self.parse_published_date(root)
-        except:
-            self.log.exception('Error parsing published date for url: %r'%self.url)
+		try:
+			mi.pubdate = self.parse_published_date(root)
+		except:
+			self.log.exception('Error parsing published date for url: %r'%self.url)
 
-        mi.source_relevance = self.relevance
+		mi.source_relevance = self.relevance
 
-        if self.isfdb_id:
-            if self.isbn:
-                self.plugin.cache_isbn_to_identifier(self.isbn, self.isfdb_id)
+		if self.isfdb_id:
+			if self.isbn:
+				self.plugin.cache_isbn_to_identifier(self.isbn, self.isfdb_id)
 
-        self.plugin.clean_downloaded_metadata(mi)
-        self.result_queue.put(mi)
+		self.plugin.clean_downloaded_metadata(mi)
+		self.result_queue.put(mi)
 
-    def parse_isfdb_id(self, url):
-        return re.search('barnesandnoble.com/(.*/.*/\d+)', url).groups(0)[0]
+	def parse_isfdb_id(self, url):
+		return re.search('barnesandnoble.com/(.*/.*/\d+)', url).groups(0)[0]
 
-    def parse_title_series(self, root):
-        title_node = root.xpath('//div[@id="product-title-1"]/h1[@itemprop="name"]')
-        if not title_node:
-            # Pre v1.2 website format
-            title_node = root.xpath('//div[@class="w-box wgt-product-heading"]/h1')
-        if not title_node:
-            # http://www.barnesandnoble.com/w/c-programming-language-brian-w-kernighan/1000055175
-            title_node = root.xpath('//div[@class="w-box wgt-productTitle"]/h1')
-        if not title_node:
-            self.log('Aborting search for title')
-            return (None, None, None)
-        title_text = title_node[0].text.strip()
-        #self.log('Found title text:',title_text)
-        if title_text.endswith('/'):
-            title_text = title_text[:-1].strip()
-        # Also strip off any NOOK Book stuff from the title
-        title_text = title_text.replace('[NOOK Book]','').strip()
-        if title_text.find('(') == -1:
-            #self.log('Title has no parenthesis for series so done:',title_text)
-            return (title_text, None, None)
-        # Contains a Title and possibly a series. Possible values currently handled:
-        # "Some title (Some text)"
-        # "Some title (XXX #1)"
-        # "Some title (XXX Series #1)"
-        # "Some title (Some text) (XXX Series #1)"
-        match = re.search('\(([^\)]+) Series #(\d+)\)', title_text)
-        if not match:
-            #self.log('Title has no Series word in title, trying without it:',title_text)
-            match = re.search('\(([^\)]+) #(\d+)\)', title_text)
-        if match:
-            series_name = match.groups(0)[0]
-            series_index = float(match.groups(0)[1])
-            title = title_text.rpartition('(')[0].strip()
-            #self.log('Title has series info as follows:',title, 'Series:',series_name, 'Idx:',series_index)
-            return (title, series_name, series_index)
-        else:
-            #self.log('Could not find series information:',title_text)
-            return (title_text, None, None)
+	def parse_title(self, root):
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if detail_nodes:
+			for detail_node in detail_nodes:
+				if detail_node[0].child_nodes()[0].text_content().strip().startswith('Publication'):
+					return detail_node[0].child_nodes()[1].tail.strip()
 
-    def parse_authors(self, root):
-        default_get_all_authors = cfg.DEFAULT_STORE_VALUES[cfg.KEY_GET_ALL_AUTHORS]
-        get_all_authors = cfg.plugin_prefs[cfg.STORE_NAME].get(cfg.KEY_GET_ALL_AUTHORS, default_get_all_authors)
-        if get_all_authors:
-            author_nodes = root.xpath('//div[@id="product-title-1"]/ul[contains(@class,"contributors")]/li/a')
-            if not author_nodes:
-                # Pre v1.2 website format
-                author_nodes = root.xpath('//div[@class="w-box wgt-product-heading"]/span/a')
-            if not author_nodes:
-                author_nodes = root.xpath('//div[@class="w-box wgt-productTitle"]/h1/em/a')
-            if author_nodes:
-                authors = []
-                for author_node in author_nodes:
-                    author = author_node.text.strip()
-                    if author:
-                        authors.append(author)
-                return authors
-        else:
-            # We need to more carefully look at the authors to only bring them in if:
-            # 1. They have no author type specified
-            # 2. There are no authors from 1 and they have an author type of 'Editor'
-            span_authors = root.xpath('//div[@id="product-title-1"]/ul[contains(@class,"contributors")]/li/a')
-            if not span_authors:
-                # Pre v1.2 website format
-                span_authors = root.xpath('//div[@class="w-box wgt-product-heading"]/span')
-            if not span_authors:
-                span_authors = root.xpath('//div[@class="w-box wgt-productTitle"]/h1/em')
-            if not span_authors:
-                return
-            authors_html = tostring(span_authors[0], method='text', encoding=unicode).replace('\n','').strip()
-            if authors_html.startswith('by'):
-                authors_html = authors_html[2:]
-            authors_type_map = OrderedDict()
-            for a in authors_html.split(','):
-                author_parts = a.strip().split('(')
-                if len(author_parts) == 1:
-                    authors_type_map[author_parts[0]] = ''
-                else:
-                    authors_type_map[author_parts[0]] = author_parts[1][:-1]
-            # At this point we have a dict of authors with their contribution if any in values
-            authors = []
-            valid_contrib = None
-            for a, contrib in authors_type_map.iteritems():
-                if not a:
-                    continue
-                if not contrib:
-                    authors.append(a)
-                elif len(authors) == 0:
-                    authors.append(a)
-                    valid_contrib = contrib
-                elif contrib == valid_contrib:
-                    authors.append(a)
-                else:
-                    break
-            return authors
+	def parse_authors(self, root):
+		author_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if author_nodes:
+			authors = []
+			for author_node in author_nodes:
+				section = author_node[0].child_nodes()[0].text_content().strip()
+				if section.startswith('Authors') or section.startswith('Editors'):
+					# XMS: This part is terrible. I need to update the xpath and looping for the [a] tags.
+					author = author_node[0].child_nodes()[1].text.strip()
+					authors.append(author)
+			return authors
+					'''
+					# The former code.
+		if author_nodes:
+			authors = []
+			for author_node in author_nodes:
+				author = author_node.text.strip()
+				if author:
+					authors.append(author)
+			return authors
+'''
+	def parse_isbn(self, root):
+		# XMS: May be a problem. Check XPATH, and what happens if there isn't an ISBN.
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if detail_nodes:
+			for detail_node in detail_nodes:
+				if detail_node[0].child_nodes()[0].text_content().strip().startswith('ISBN'):
+					# XMS: Put in a bit here to capture the ISBN-13.
+					# XMS: Also a bit to error when there isn't one, but ISBN was found.
+					return detail_node[0].child_nodes()[1].tail.strip()
 
-    def parse_isbn(self, root):
-        # XMS: May be a problem. Check XPATH, and what happens if there isn't an ISBN.
-        detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-        if detail_nodes:
-            for detail_node in detail_nodes:
-                if detail_node[0].child_nodes()[0].text_content().strip().startswith('ISBN'):
-                    # XMS: Put in a bit here to capture the ISBN-13.
-                    # XMS: Also a bit to error when there isn't one, but ISBN was found.
-                    return detail_node[0].child_nodes()[1].tail.strip()
+	def parse_publisher(self, root):
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if detail_nodes:
+			for detail_node in detail_nodes:
+				if detail_node[0].child_nodes()[0].text_content().strip().startswith('Publisher'):
+					return detail_node[0].child_nodes()[1].tail.strip()
 
-    def parse_publisher(self, root):
-        detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-        if detail_nodes:
-            for detail_node in detail_nodes:
-                if detail_node[0].child_nodes()[0].text_content().strip().startswith('Publisher'):
-                    return detail_node[0].child_nodes()[1].tail.strip()
+	def parse_published_date(self, root):
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if detail_nodes:
+			for detail_node in detail_nodes:
+				if detail_node[0].text_content().strip().startswith('Year'):
+					pub_date_text = detail_node[0].child_nodes()[1].tail.strip()
+					return self._convert_date_text(pub_date_text)
 
-    def parse_published_date(self, root):
-        detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-        if detail_nodes:
-            for detail_node in detail_nodes:
-                if detail_node[0].text_content().strip().startswith('Year'):
-                    pub_date_text = detail_node[0].child_nodes()[1].tail.strip()
-                    return self._convert_date_text(pub_date_text)
+	def _convert_date_text(self, date_text):
+		# 2008-08-00
+		year = int(date_text[0:4])
+		month = int(date_text[5:7])
+		if month == 0:
+			month = 1
+		day = int(date_text[8:10])
+		if day == 0:
+			day = 1
+		from calibre.utils.date import utc_tz
+		return datetime.datetime(year, month, day, tzinfo=utc_tz)
 
-    def _convert_date_text(self, date_text):
-        # 2008-08-00
-        year = int(date_text[0:4])
-        month = int(date_text[5:7])
-        if month == 0:
-            month = 1
-        day = int(date_text[8:10])
-        if day == 0:
-            day = 1
-        from calibre.utils.date import utc_tz
-        return datetime.datetime(year, month, day, tzinfo=utc_tz)
+	def parse_comments(self, root):
+		default_append_contents = cfg.DEFAULT_STORE_VALUES[cfg.KEY_APPEND_CONTENTS]
+		append_contents = cfg.plugin_prefs[cfg.STORE_NAME].get(cfg.KEY_APPEND_CONTENTS, default_append_contents)
+		comments = ''
+		if append_contents:
+			contents_node = root.xpath('//div[@id="ContentBox"]/ul')
+			if contents_node:
+				contents = tostring(contents_node[0], method='html')
+				comments += contents
+		if comments:
+			return comments
 
-    def parse_comments(self, root):
-        default_append_toc = cfg.DEFAULT_STORE_VALUES[cfg.KEY_APPEND_TOC]
-        append_toc = cfg.plugin_prefs[cfg.STORE_NAME].get(cfg.KEY_APPEND_TOC, default_append_toc)
-        comments = ''
-        if append_toc:
-            toc_node = root.xpath('//div[@id="ContentBox"]/ul')
-            if toc_node:
-                toc = tostring(toc_node[0], method='html')
-                comments += toc
-        if comments:
-            return comments
-
-    def parse_cover(self, root):
-        # First check to make sure there's an image there at all.
-        page_image_box = root.xpath('//div[@id="MetadataBox"]/table/tbody/tr[1]/td[1]//img')
-        if page_image_box:
-            page_url = page_image_box[0].strip()
-            return page_url
+	def parse_cover(self, root):
+		# First check to make sure there's an image there at all.
+		page_image_box = root.xpath('//div[@id="MetadataBox"]/table/tbody/tr[1]/td[1]//img')
+		if page_image_box:
+			page_url = page_image_box[0].strip()
+			return page_url
