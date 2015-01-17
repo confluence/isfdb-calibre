@@ -1,5 +1,0 @@
-ISFDB PLUGIN WOO
-===========================
-
-Created by Xtina Schelin
-Based on the B&N plugin by Kovid Goyal

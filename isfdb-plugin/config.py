@@ -7,35 +7,74 @@ __license__   = 'GPL v3'
 __copyright__ = '2015, Xtina Schelin <xtina.schelin@gmail.com>'
 __docformat__ = 'restructuredtext en'
 
-from PyQt5.Qt import QWidget, QHBoxLayout, QLabel, QLineEdit
-
+#added 3 lines to port to QT5
+try:
+    from PyQt5 import Qt as QtGui
+except ImportError:
+    from PyQt4 import QtGui
+#added 3 lines to port to QT5
+try:
+    from PyQt5.Qt import QLabel, QGridLayout, Qt, QGroupBox, QCheckBox
+except ImportError:
+    from PyQt4.Qt import QLabel, QGridLayout, Qt, QGroupBox, QCheckBox
+from calibre.gui2.metadata.config import ConfigWidget as DefaultConfigWidget
 from calibre.utils.config import JSONConfig
 
+STORE_NAME = 'Options'
+KEY_MAX_DOWNLOADS = 'maxDownloads'
+KEY_GET_ALL_AUTHORS = 'getAllAuthors'
+KEY_APPEND_TOC = 'appendTOC'
+
+DEFAULT_STORE_VALUES = {
+    KEY_MAX_DOWNLOADS: 1,
+    KEY_GET_ALL_AUTHORS: False,
+    KEY_APPEND_TOC: False
+}
+
 # This is where all preferences for this plugin will be stored
-# Remember that this name (i.e. plugins/interface_demo) is also
-# in a global namespace, so make it as unique as possible.
-# You should always prefix your config file name with plugins/,
-# so as to ensure you dont accidentally clobber a calibre config file
-prefs = JSONConfig('plugins/interface_demo')
+plugin_prefs = JSONConfig('plugins/ISFDB')
 
 # Set defaults
-prefs.defaults['hello_world_msg'] = 'Hello, World!'
+plugin_prefs.defaults[STORE_NAME] = DEFAULT_STORE_VALUES
 
-class ConfigWidget(QWidget):
 
-    def __init__(self):
-        QWidget.__init__(self)
-        self.l = QHBoxLayout()
-        self.setLayout(self.l)
+class ConfigWidget(DefaultConfigWidget):
+    def __init__(self, plugin):
+        DefaultConfigWidget.__init__(self, plugin)
+        c = plugin_prefs[STORE_NAME]
 
-        self.label = QLabel('Hello world &message:')
-        self.l.addWidget(self.label)
+        other_group_box = QGroupBox('Other options', self)
+        self.l.addWidget(other_group_box, self.l.rowCount(), 0, 1, 2)
+        other_group_box_layout = QGridLayout()
+        other_group_box.setLayout(other_group_box_layout)
 
-        self.msg = QLineEdit(self)
-        self.msg.setText(prefs['hello_world_msg'])
-        self.l.addWidget(self.msg)
-        self.label.setBuddy(self.msg)
+        # Maximum # of title/auther searches to review.
+        max_label = QLabel('Maximum title/author search matches to evaluate (1 = fastest):', self)
+        max_label.setToolTip('ISFDB doesn\'t always have links to large covers for every ISBN\n'
+                             'of the same book. Increasing this value will take effect when doing\n'
+                             'title/author searches to consider more ISBN editions.\n\n'
+                             'This will increase the potential likelihood of getting a larger cover,\n'
+                             'though does not guarantee it.')
+        other_group_box_layout.addWidget(max_label, 0, 0, 1, 1)
+        self.max_downloads_spin = QtGui.QSpinBox(self)
+        self.max_downloads_spin.setMinimum(1)
+        self.max_downloads_spin.setMaximum(5)
+        self.max_downloads_spin.setProperty('value', c.get(KEY_MAX_DOWNLOADS, DEFAULT_STORE_VALUES[KEY_MAX_DOWNLOADS]))
+        other_group_box_layout.addWidget(self.max_downloads_spin, 0, 1, 1, 1)
+        other_group_box_layout.setColumnStretch(2, 1)
 
-    def save_settings(self):
-        prefs['hello_world_msg'] = unicode(self.msg.text())
+        # Contents field, if possible.
+        self.toc_checkbox = QCheckBox('Append Contents if available to comments', self)
+        self.toc_checkbox.setToolTip('Choosing this option will write the Contents section to the comments\n'
+                                      'field, if such a section exists.')
+        self.toc_checkbox.setChecked(c.get(KEY_APPEND_TOC, DEFAULT_STORE_VALUES[KEY_APPEND_TOC]))
+        other_group_box_layout.addWidget(self.toc_checkbox, 2, 0, 1, 3)
+
+    def commit(self):
+        DefaultConfigWidget.commit(self)
+        new_prefs = {}
+        new_prefs[KEY_MAX_DOWNLOADS] = int(unicode(self.max_downloads_spin.value()))
+        new_prefs[KEY_GET_ALL_AUTHORS] = self.all_authors_checkbox.checkState() == Qt.Checked
+        new_prefs[KEY_APPEND_TOC] = self.toc_checkbox.checkState() == Qt.Checked
+        plugin_prefs[STORE_NAME] = new_prefs
 

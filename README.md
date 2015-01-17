@@ -1,7 +1,7 @@
 # isfdb-calibre
 A [Calibre](http://calibre-ebook.com/) plugin for [ISFDB](http://isfdb.org/).
 
-This is based on the Barnes & Noble plugin that Kovid Doyal created. Thanks!
+This is based on the Barnes & Noble plugin that Grant Drake created. Thanks!
 
 ## Test Cases
 
