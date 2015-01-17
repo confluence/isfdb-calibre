@@ -1,2 +1,2 @@
 # isfdb-calibre
-A Calibre plugin for ISFDB.
+A [Calibre](http://calibre-ebook.com/) plugin for [ISFDB](http://isfdb.org/).
