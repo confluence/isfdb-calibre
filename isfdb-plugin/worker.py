@@ -26,6 +26,7 @@ class Worker(Thread): # Get details
 	'''
 
 	def __init__(self, url, result_queue, browser, log, relevance, plugin, timeout=20):
+        print("Ohai")
 		Thread.__init__(self)
 		self.daemon = True
 		self.url, self.result_queue = url, result_queue
@@ -35,6 +36,7 @@ class Worker(Thread): # Get details
 		self.cover_url = self.isfdb_id = self.isbn = None
 
 	def run(self):
+        print("Ohai")
 		try:
 			self.get_details()
 		except:
@@ -42,6 +44,7 @@ class Worker(Thread): # Get details
 
 	def get_details(self):
 		try:
+            print('ISFDB url: %r'%self.url)
 			self.log.info('ISFDB url: %r'%self.url)
 			raw = self.browser.open_novisit(self.url, timeout=self.timeout).read().strip()
 		except Exception as e:
@@ -78,6 +81,7 @@ class Worker(Thread): # Get details
 		try:
 			isfdb_id = self.parse_isfdb_id(self.url)
 		except:
+            print('Error parsing ISFDB ID for url: %r'%self.url)
 			self.log.exception('Error parsing ISFDB ID for url: %r'%self.url)
 			isfdb_id = None
 

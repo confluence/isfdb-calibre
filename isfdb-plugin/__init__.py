@@ -35,7 +35,7 @@ class ISFDB(Source):
 	supports_gzip_transfer_encoding = False
 	cached_cover_url_is_reliable = True
 
-	BASE_URL   = 'http://www.isfdb.org'
+	BASE_URL = 'http://www.isfdb.org'
 	SEARCH_URL = BASE_URL + '/cgi-bin/se.cgi?'
 
 	def config_widget(self):
@@ -54,7 +54,7 @@ class ISFDB(Source):
 	def create_query(self, log, title=None, authors=None, identifiers={}):
 		isbn = check_isbn(identifiers.get('isbn', None))
 		if isbn is not None:
-			return 'type=ISBN&arg=' % (ISFDB.SEARCH_URL, isbn))
+			return 'type=ISBN&arg=' % (ISFDB.SEARCH_URL, isbn)
 		tokens = []
 		if title:
 			title = title.replace('?', '')
@@ -98,8 +98,8 @@ class ISFDB(Source):
 					return self._identifier_to_cover_url_cache[key]
 		return url
 
-	def identify(self, log, result_queue, abort, title=None, authors=None,
-			identifiers={}, timeout=30):
+	def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
+        print("identify")
 		'''
 		Note this method will retry without identifiers automatically if no
 		match is found with identifiers.
@@ -330,7 +330,6 @@ if __name__ == '__main__': # tests
 				return True
 			prints('Cover test failed. Expected: \'%s\' found: ' % cover_url, mc)
 			return False
-
 		return test
 
 	# Test the plugin.
