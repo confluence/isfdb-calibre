@@ -114,6 +114,7 @@ class ISFDB(Source):
 			matches.append('%s/cgi-bin/pl.cgi?%s' % (ISFDB.BASE_URL, isfdb_id))
 		else:
 			title = get_udc().decode(title)
+			authors = authors or []
 			authors = [get_udc().decode(a) for a in authors]
 			query = self.create_query(log, title=title, authors=authors, identifiers=identifiers)
 			if query is None:
