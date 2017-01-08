@@ -54,7 +54,7 @@ class ISFDB(Source):
 	def create_query(self, log, title=None, authors=None, identifiers={}):
 		isbn = check_isbn(identifiers.get('isbn', None))
 		if isbn is not None:
-			return 'type=ISBN&arg=' % (ISFDB.SEARCH_URL, isbn)
+			return '%stype=ISBN&arg=%s' % (ISFDB.SEARCH_URL, isbn)
 		tokens = []
 		if title:
 			title = title.replace('?', '')
@@ -131,8 +131,8 @@ class ISFDB(Source):
 					# If not an exact match on ISBN we can get a search results page back
 					# XMS: This may be terribly different for ISFDB.
 					# XMS: HOWEVER: 1563890933 returns multiple results!
-					isbn_match_failed = location.find('/pl.cgi') > 0
-					if response.read().find('found 0 matches') == -1 and not isbn_match_failed:
+					isbn_match_failed = location.find('/pl.cgi') < 0
+					if response.read().decode('utf-8', errors='replace').find('found 0 matches') == -1 and not isbn_match_failed:
 						log.info('ISBN match location: %r' % location)
 						matches.append(location)
 			except Exception as e:

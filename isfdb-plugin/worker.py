@@ -78,27 +78,42 @@ class Worker(Thread): # Get details
 		self.parse_details(root)
 
 	def parse_details(self, root):
+		isfdb_id = None
+		title = None
+		authors = []
+		isbn = None
+		publisher = None
+		pubdate = None
+		
 		try:
-			isfdb_id = self.parse_isfdb_id(self.url)
+			isfdb_id = re.search('(\d+)$', self.url).groups(0)[0]
 		except:
-            print('Error parsing ISFDB ID for url: %r'%self.url)
-			self.log.exception('Error parsing ISFDB ID for url: %r'%self.url)
-			isfdb_id = None
-
-		try:
-			(title) = self.parse_title(root)
-		except:
-			self.log.exception('Error parsing title for url: %r'%self.url)
-			title = None
-
-		try:
-			authors = self.parse_authors(root)
-		except:
-			self.log.exception('Error parsing authors for url: %r'%self.url)
-			authors = []
+			self.log.exception('Error parsing ISFDB ID for url: %r' % self.url)
+			
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip().rstrip(':')
+			try:
+				if section == 'Publication':
+					title = detail_node[0].tail.strip()
+				elif section == 'Authors' or section == 'Editors':
+					for a in detail_node.xpath('a'):
+						author = a.text_content().strip()
+						if section.startswith('Editors'):
+							authors.append(author + ' (Editor)')
+						else:
+							authors.append(author)
+				elif section == 'ISBN':
+					isbn = detail_node[0].tail.strip()
+				elif section == 'Publisher':
+					publisher = detail_node[0].tail.strip()
+				elif section == 'Year':
+					pubdate = self._convert_date_text(detail_node[0].tail.strip())
+			except:
+				self.log.exception('Error parsing section %r for url: %r' % (section, self.url) )
 
 		if not title or not authors or not isfdb_id:
-			self.log.error('Could not find title/authors/ISFDB ID for %r'%self.url)
+			self.log.error('Could not find title/authors/ISFDB ID for %r' % self.url)
 			self.log.error('ISFDB: %r Title: %r Authors: %r' % (isfdb_id, title,
 				authors))
 			return
@@ -107,13 +122,13 @@ class Worker(Thread): # Get details
 		mi.set_identifier('isfdb', isfdb_id)
 		self.isfdb_id = isfdb_id
 
-		try:
-			isbn = self.parse_isbn(root)
-			if isbn:
-				self.isbn = mi.isbn = isbn
-		except:
-			self.log.exception('Error parsing ISBN for url: %r'%self.url)
-
+		if isbn:
+			self.isbn = mi.isbn = isbn
+		if publisher:
+			mi.publisher = publisher
+		if pubdate:
+			mi.pubdate = pubdate
+			
 		try:
 			mi.comments = self.parse_comments(root)
 		except:
@@ -126,16 +141,6 @@ class Worker(Thread): # Get details
 		mi.has_cover = bool(self.cover_url)
 		mi.cover_url = self.cover_url # This is purely so we can run a test for it!!!
 
-		try:
-			mi.publisher = self.parse_publisher(root)
-		except:
-			self.log.exception('Error parsing publisher for url: %r'%self.url)
-
-		try:
-			mi.pubdate = self.parse_published_date(root)
-		except:
-			self.log.exception('Error parsing published date for url: %r'%self.url)
-
 		mi.source_relevance = self.relevance
 
 		if self.isfdb_id:
@@ -144,55 +149,6 @@ class Worker(Thread): # Get details
 
 		self.plugin.clean_downloaded_metadata(mi)
 		self.result_queue.put(mi)
-
-	def parse_isfdb_id(self, url):
-		return re.search('(\d+)$', url).groups(0)[0]
-
-	def parse_title(self, root):
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		for detail_node in detail_nodes:
-			section = detail_node[0].text_content().strip()
-			if section.startswith('Publication'):
-				return detail_node[0].tail.strip()
-
-	def parse_authors(self, root):
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		authors = []
-		for detail_node in detail_nodes:
-			section = detail_node[0].text_content().strip()
-			if section.startswith('Authors') or section.startswith('Editors'):
-				for a in detail_node.xpath('a'):
-					author = a.text_content().strip()
-					if section.startswith('Editors'):
-						authors.append(author + ' (Editor)')
-					else:
-						authors.append(author)
-		return authors
-
-	def parse_isbn(self, root):
-		# XMS: May be a problem. Check XPATH, and what happens if there isn't an ISBN.
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		for detail_node in detail_nodes:
-			section = detail_node[0].text_content().strip()
-			if section.startswith('ISBN'):
-				# XMS: Put in a bit here to capture the ISBN-13.
-				# XMS: Also a bit to error when there isn't one, but ISBN was found.
-				return detail_node[0].tail.strip()
-
-	def parse_publisher(self, root):
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		for detail_node in detail_nodes:
-			section = detail_node[0].text_content().strip()
-			if section.startswith('Publisher'):
-				return detail_node[0].tail.strip()
-
-	def parse_published_date(self, root):
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		for detail_node in detail_nodes:
-			section = detail_node[0].text_content().strip()
-			if section.startswith('Year'):
-				pub_date_text = detail_node[0].tail.strip()
-				return self._convert_date_text(pub_date_text)
 
 	def _convert_date_text(self, date_text):
 		# 2008-08-00
