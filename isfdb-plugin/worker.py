@@ -150,47 +150,49 @@ class Worker(Thread): # Get details
 
 	def parse_title(self, root):
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		if detail_nodes:
-			for detail_node in detail_nodes:
-				if detail_node[0].child_nodes()[0].text_content().strip().startswith('Publication'):
-					return detail_node[0].child_nodes()[1].tail.strip()
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip()
+			if section.startswith('Publication'):
+				return detail_node[0].tail.strip()
 
 	def parse_authors(self, root):
-		author_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		if author_nodes:
-			authors = []
-			for author_node in author_nodes:
-				section = author_node[0].child_nodes()[0].text_content().strip()
-				if section.startswith('Authors') or section.startswith('Editors'):
-					# XMS: This part is terrible. I need to update the xpath and looping for the [a] tags.
-					author = author_node[0].child_nodes()[1].text.strip()
-					authors.append(author)
-			return authors
+		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		authors = []
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip()
+			if section.startswith('Authors') or section.startswith('Editors'):
+				for a in detail_node.xpath('a'):
+					author = a.text_content().strip()
+					if section.startswith('Editors'):
+						authors.append(author + ' (Editor)')
+					else:
+						authors.append(author)
+		return authors
 
 	def parse_isbn(self, root):
 		# XMS: May be a problem. Check XPATH, and what happens if there isn't an ISBN.
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		if detail_nodes:
-			for detail_node in detail_nodes:
-				if detail_node[0].child_nodes()[0].text_content().strip().startswith('ISBN'):
-					# XMS: Put in a bit here to capture the ISBN-13.
-					# XMS: Also a bit to error when there isn't one, but ISBN was found.
-					return detail_node[0].child_nodes()[1].tail.strip()
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip()
+			if section.startswith('ISBN'):
+				# XMS: Put in a bit here to capture the ISBN-13.
+				# XMS: Also a bit to error when there isn't one, but ISBN was found.
+				return detail_node[0].tail.strip()
 
 	def parse_publisher(self, root):
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		if detail_nodes:
-			for detail_node in detail_nodes:
-				if detail_node[0].child_nodes()[0].text_content().strip().startswith('Publisher'):
-					return detail_node[0].child_nodes()[1].tail.strip()
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip()
+			if section.startswith('Publisher'):
+				return detail_node[0].tail.strip()
 
 	def parse_published_date(self, root):
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
-		if detail_nodes:
-			for detail_node in detail_nodes:
-				if detail_node[0].text_content().strip().startswith('Year'):
-					pub_date_text = detail_node[0].child_nodes()[1].tail.strip()
-					return self._convert_date_text(pub_date_text)
+		for detail_node in detail_nodes:
+			section = detail_node[0].text_content().strip()
+			if section.startswith('Year'):
+				pub_date_text = detail_node[0].tail.strip()
+				return self._convert_date_text(pub_date_text)
 
 	def _convert_date_text(self, date_text):
 		# 2008-08-00
