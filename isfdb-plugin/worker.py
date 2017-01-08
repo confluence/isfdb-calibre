@@ -166,16 +166,7 @@ class Worker(Thread): # Get details
 					author = author_node[0].child_nodes()[1].text.strip()
 					authors.append(author)
 			return authors
-					'''
-					# The former code.
-		if author_nodes:
-			authors = []
-			for author_node in author_nodes:
-				author = author_node.text.strip()
-				if author:
-					authors.append(author)
-			return authors
-'''
+
 	def parse_isbn(self, root):
 		# XMS: May be a problem. Check XPATH, and what happens if there isn't an ISBN.
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
