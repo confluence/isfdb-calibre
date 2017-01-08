@@ -146,7 +146,7 @@ class Worker(Thread): # Get details
 		self.result_queue.put(mi)
 
 	def parse_isfdb_id(self, url):
-		return re.search('barnesandnoble.com/(.*/.*/\d+)', url).groups(0)[0]
+		return re.search('(\d+)$', url).groups(0)[0]
 
 	def parse_title(self, root):
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
