@@ -37,6 +37,7 @@ class ISFDB(Source):
 
 	BASE_URL = 'http://www.isfdb.org'
 	SEARCH_URL = BASE_URL + '/cgi-bin/se.cgi?'
+	ADV_SEARCH_URL = BASE_URL + '/cgi-bin/adv_search_results.cgi?'
 
 	def config_widget(self):
 		'''
@@ -55,20 +56,34 @@ class ISFDB(Source):
 		isbn = check_isbn(identifiers.get('isbn', None))
 		if isbn is not None:
 			return '%stype=ISBN&arg=%s' % (ISFDB.SEARCH_URL, isbn)
-		tokens = []
+		
 		if title:
 			title = title.replace('?', '')
-			title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-			if title_tokens:
-				tokens += [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
+			title_tokens = self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True)
+			title_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in title_tokens]
+			search_title = '+'.join(title_tokens)
 		if authors:
 			author_tokens = self.get_author_tokens(authors, only_first_author=True)
-			if author_tokens:
-				tokens += [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
-		if len(tokens) == 0:
+			author_tokens = [quote(t.encode('utf-8') if isinstance(t, unicode) else t) for t in author_tokens]
+			search_author = '+'.join(author_tokens)
+			
+		log.info("TITLE %s" % search_title)
+		log.info("AUTHOR %s" % search_author)
+			
+		if not title_tokens and not author_tokens:
 			return None
-		return ISFDB.SEARCH_URL + 'arg=' + '+'.join(tokens)
-
+		elif title_tokens and author_tokens:
+			# Currently the third term is unused; we could pass in a publisher.
+			return '%sUSE_1=pub_title&OPERATOR_1=contains&TERM_1=%s&CONJUNCTION_1=AND' \
+			'&USE_2=author_canonical&OPERATOR_2=contains&TERM_2=%s' \
+			'&ORDERBY=pub_title&START=0&TYPE=Publication' % (ISFDB.ADV_SEARCH_URL, search_title, search_author)
+		elif title_tokens:
+			return '%sUSE_1=pub_title&OPERATOR_1=contains&TERM_1=%s' \
+			'&ORDERBY=pub_title&START=0&TYPE=Publication' % (ISFDB.ADV_SEARCH_URL, search_title)
+		elif author_tokens:
+			return '%sUSE_1=author_canonical&OPERATOR_1=contains&TERM_1=%s' \
+			'&ORDERBY=pub_title&START=0&TYPE=Publication' % (ISFDB.ADV_SEARCH_URL, search_author)
+			
 	def get_cached_cover_url(self, identifiers):
 		url = None
 		isfdb_id = identifiers.get('isfdb', None)
