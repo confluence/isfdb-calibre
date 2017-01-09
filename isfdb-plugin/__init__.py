@@ -139,6 +139,8 @@ class ISFDB(Source):
 			try:
 				log.info('Querying: %s' % query)
 				response = br.open_novisit(query, timeout=timeout)
+				raw = response.read().decode('utf-8', errors='replace').strip()
+				
 				if isbn:
 					# Check whether we got redirected to a book page for ISBN searches.
 					# If we did, will use the url.
@@ -148,7 +150,7 @@ class ISFDB(Source):
 					# XMS: This may be terribly different for ISFDB.
 					# XMS: HOWEVER: 1563890933 returns multiple results!
 					isbn_match_failed = location.find('/pl.cgi') < 0
-					if response.read().decode('utf-8', errors='replace').find('found 0 matches') == -1 and not isbn_match_failed:
+					if raw.find('found 0 matches') == -1 and not isbn_match_failed:
 						log.info('ISBN match location: %r' % location)
 						matches.append(location)
 			except Exception as e:
@@ -168,11 +170,6 @@ class ISFDB(Source):
 			# So anything from this point below is for title/author based searches.
 			if not isbn or isbn_match_failed:
 				try:
-					raw = response.read().strip()
-					raw = raw.decode('utf-8', errors='replace')
-					if not raw:
-						log.error('Failed to get raw result for query')
-						return
 					root = fromstring(clean_ascii_chars(raw))
 				except:
 					msg = 'Failed to parse ISFDB page for query'
@@ -214,9 +211,11 @@ class ISFDB(Source):
 		return None
 
 	def _parse_search_results(self, log, orig_title, orig_authors, root, matches, timeout):
+		UNSUPPORTED_FORMATS = [] # is there anything to exclude?
+		
 		results = root.xpath('//div[@id="main"]/table/tr')
 		if not results:
-			#log.info('FOUND NO RESULTS:')
+			log.info('Unable to parse search results.')
 			return
 
 		def ismatch(title, authors):
@@ -238,39 +237,32 @@ class ISFDB(Source):
 		import calibre_plugins.isfdb.config as cfg
 		max_results = cfg.plugin_prefs[cfg.STORE_NAME][cfg.KEY_MAX_DOWNLOADS]
 		title_url_map = OrderedDict()
-		for result in results:
-			#log.info('Looking at result:')
-			title = ''.join(result.xpath('.//img[contains(@class, "product-image")]/@alt'))
-			if not title:
-				#log.info('Could not find title')
-				continue
-			# Strip off any series information from the title
-			#log.info('FOUND TITLE:',title)
-			if '(' in title:
-				#log.info('Stripping off series(')
-				title = title.rpartition('(')[0].strip()
-			# Also strip off any NOOK Book stuff from the title
-			title = title.replace('[NOOK Book]', '').strip()
 
-			#contributors = result.xpath('.//ul[@class="contributors"]//li[position()>1]//a')
-			contributors = result.xpath('.//a[@class="contributor"]')
+		for result in results:
+			if not result.xpath('td'):
+				continue # header
+			
+			#log.info('Looking at result:')
+			title = result.xpath('td')[0].text_content().strip()
+
+			contributors = result.xpath('td[3]/a')
 			authors = []
 			for c in contributors:
 				author = c.text_content().split(',')[0]
 				#log.info('Found author:',author)
 				if author.strip():
 					authors.append(author.strip())
-
-			#log.info('Looking at tokens:',author)
+				#log.info('Looking at tokens:',author)
+				
 			title_tokens = list(self.get_title_tokens(orig_title))
 			author_tokens = list(self.get_author_tokens(orig_authors))
-			log.info('Considering search result: %s %s' % (title, authors))
+			#log.info('Considering search result: %s %s' % (title, authors))
 			if not ismatch(title, authors):
-				log.error('Rejecting as not close enough match: %s %s' % (title, authors))
+				#log.error('Rejecting as not close enough match: %s %s' % (title, authors))
 				continue
 
 			# Validate that the format is one we are interested in
-			format_details = result.xpath('.//span[@class="format"]/text()')
+			format_details = result.xpath('td[8]/text()')
 			valid_format = False
 			for format in format_details:
 				#log.info('**Found format: %s'%format)
@@ -280,7 +272,7 @@ class ISFDB(Source):
 			result_url = None
 			if valid_format:
 				# Get the detailed url to query next
-				result_url = ''.join(result.xpath('.//a[@class="title"]/@href'))
+				result_url = ''.join(result.xpath('td[1]/a/@href'))
 				#log.info('**Found href: %s'%result_url)
 
 			if result_url and title not in title_url_map:
