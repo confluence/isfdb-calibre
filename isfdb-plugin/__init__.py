@@ -321,7 +321,7 @@ class ISFDB(Source):
 		if abort.is_set():
 			return
 		br = self.browser
-		log('Downloading cover from:', cached_url)
+		log.info('Downloading cover from:', cached_url)
 		try:
 			cdata = br.open_novisit(cached_url, timeout=timeout).read()
 			result_queue.put((self, cdata))

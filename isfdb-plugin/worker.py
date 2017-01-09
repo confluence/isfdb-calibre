@@ -138,6 +138,7 @@ class Worker(Thread): # Get details
 			self.cover_url = self.parse_cover(root)
 		except:
 			self.log.exception('Error parsing cover for url: %r'%self.url)
+		
 		mi.has_cover = bool(self.cover_url)
 		mi.cover_url = self.cover_url # This is purely so we can run a test for it!!!
 
@@ -175,8 +176,8 @@ class Worker(Thread): # Get details
 			return comments
 
 	def parse_cover(self, root):
-		# First check to make sure there's an image there at all.
-		page_image_box = root.xpath('//div[@id="MetadataBox"]/table/tbody/tr[1]/td[1]//img')
-		if page_image_box:
-			page_url = page_image_box[0].strip()
+		img_src = root.xpath('//div[@id="MetadataBox"]/table/tr[1]/td[1]/a/img/@src')
+		if img_src:
+			page_url = img_src[0]
+			self.plugin.cache_identifier_to_cover_url(self.isfdb_id, page_url)
 			return page_url
