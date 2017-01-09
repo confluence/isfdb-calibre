@@ -106,7 +106,7 @@ class Worker(Thread): # Get details
 				elif section == 'ISBN':
 					isbn = detail_node[0].tail.strip()
 				elif section == 'Publisher':
-					publisher = detail_node[0].tail.strip()
+					publisher = detail_node.xpath('a')[0].text_content().strip()
 				elif section == 'Year':
 					pubdate = self._convert_date_text(detail_node[0].tail.strip())
 			except:
