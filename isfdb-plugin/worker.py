@@ -91,8 +91,12 @@ class Worker(Thread): # Get details
 			self.log.exception('Error parsing ISFDB ID for url: %r' % self.url)
 			
 		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+		if not detail_nodes:
+			detail_nodes = root.xpath('//div[@id="MetadataBox"]/ul/li') # no table (on records with no image)
+
 		for detail_node in detail_nodes:
 			section = detail_node[0].text_content().strip().rstrip(':')
+			#self.log.info(section)
 			try:
 				if section == 'Publication':
 					title = detail_node[0].tail.strip()
@@ -153,15 +157,19 @@ class Worker(Thread): # Get details
 
 	def _convert_date_text(self, date_text):
 		# 2008-08-00
-		year = int(date_text[0:4])
-		month = int(date_text[5:7])
-		if month == 0:
-			month = 1
-		day = int(date_text[8:10])
-		if day == 0:
-			day = 1
-		from calibre.utils.date import utc_tz
-		return datetime.datetime(year, month, day, tzinfo=utc_tz)
+		try:
+			year = int(date_text[0:4])
+			month = int(date_text[5:7])
+			if month == 0:
+				month = 1
+			day = int(date_text[8:10])
+			if day == 0:
+				day = 1
+			from calibre.utils.date import utc_tz
+			pubdate = datetime.datetime(year, month, day, tzinfo=utc_tz)
+			return pubdate
+		except:
+			return None # not a parseable date
 
 	def parse_comments(self, root):
 		default_append_contents = cfg.DEFAULT_STORE_VALUES[cfg.KEY_APPEND_CONTENTS]

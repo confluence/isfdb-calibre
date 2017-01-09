@@ -114,7 +114,7 @@ class ISFDB(Source):
 		return url
 
 	def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
-        print("identify")
+        log.info("identify")
 		'''
 		Note this method will retry without identifiers automatically if no
 		match is found with identifiers.
@@ -207,7 +207,7 @@ class ISFDB(Source):
 					a_worker_is_alive = True
 			if not a_worker_is_alive:
 				break
-
+		
 		return None
 
 	def _parse_search_results(self, log, orig_title, orig_authors, root, matches, timeout):
@@ -236,7 +236,6 @@ class ISFDB(Source):
 
 		import calibre_plugins.isfdb.config as cfg
 		max_results = cfg.plugin_prefs[cfg.STORE_NAME][cfg.KEY_MAX_DOWNLOADS]
-		title_url_map = OrderedDict()
 
 		for result in results:
 			if not result.xpath('td'):
@@ -275,15 +274,10 @@ class ISFDB(Source):
 				result_url = ''.join(result.xpath('td[1]/a/@href'))
 				#log.info('**Found href: %s'%result_url)
 
-			if result_url and title not in title_url_map:
-				title_url_map[title] = result_url
-				if len(title_url_map) >= 5:
+			if result_url:
+				matches.append(result_url)
+				if len(matches) >= max_results:
 					break
-
-		for title in title_url_map.keys():
-			matches.append(title_url_map[title])
-			if len(matches) >= max_results:
-				break
 
 
 	def download_cover(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
