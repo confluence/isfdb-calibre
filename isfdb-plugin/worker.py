@@ -100,8 +100,11 @@ class Worker(Thread): # Get details
 			try:
 				if section == 'Publication':
 					title = detail_node[0].tail.strip()
+					if not title:
+						# assume an extra span with a transliterated title tooltip
+						title = detail_node[1].text_content().strip()
 				elif section == 'Authors' or section == 'Editors':
-					for a in detail_node.xpath('a'):
+					for a in detail_node.xpath('.//a'):
 						author = a.text_content().strip()
 						if section.startswith('Editors'):
 							authors.append(author + ' (Editor)')
