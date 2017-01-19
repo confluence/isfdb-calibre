@@ -62,7 +62,7 @@ class Worker(Thread): # Get details
 				self.log.exception(msg)
 			return
 
-		raw = raw.decode('utf-8', errors='replace')
+		raw = raw.decode('cp1252', errors='replace')
 
 		if '<title>404 - ' in raw:
 			self.log.error('URL malformed: %r'%self.url)

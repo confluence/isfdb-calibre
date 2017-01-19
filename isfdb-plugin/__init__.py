@@ -139,7 +139,7 @@ class ISFDB(Source):
 			try:
 				log.info('Querying: %s' % query)
 				response = br.open_novisit(query, timeout=timeout)
-				raw = response.read().decode('utf-8', errors='replace').strip()
+				raw = response.read().decode('cp1252', errors='replace').strip()
 				
 				if isbn:
 					# Check whether we got redirected to a book page for ISBN searches.
