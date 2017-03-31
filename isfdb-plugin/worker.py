@@ -89,10 +89,10 @@ class Worker(Thread): # Get details
 			isfdb_id = re.search('(\d+)$', self.url).groups(0)[0]
 		except:
 			self.log.exception('Error parsing ISFDB ID for url: %r' % self.url)
-			
-		detail_nodes = root.xpath('//div[@id="MetadataBox"]//td[@class="pubheader"]/ul/li')
+        
+		detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
 		if not detail_nodes:
-			detail_nodes = root.xpath('//div[@id="MetadataBox"]/ul/li') # no table (on records with no image)
+			detail_nodes = root.xpath('//div[@id="content"]/ul/li') # no table (on records with no image)
 
 		for detail_node in detail_nodes:
 			section = detail_node[0].text_content().strip().rstrip(':')
@@ -103,6 +103,7 @@ class Worker(Thread): # Get details
 					if not title:
 						# assume an extra span with a transliterated title tooltip
 						title = detail_node[1].text_content().strip()
+                    #self.log.info(title)
 				elif section == 'Authors' or section == 'Editors':
 					for a in detail_node.xpath('.//a'):
 						author = a.text_content().strip()
@@ -110,12 +111,16 @@ class Worker(Thread): # Get details
 							authors.append(author + ' (Editor)')
 						else:
 							authors.append(author)
+                    #self.log.info(authors)
 				elif section == 'ISBN':
-					isbn = detail_node[0].tail.strip()
+					isbn = detail_node[0].tail.strip('[] \n')
+                    #self.log.info(isbn)
 				elif section == 'Publisher':
 					publisher = detail_node.xpath('a')[0].text_content().strip()
-				elif section == 'Year':
+                    #self.log.info(publisher)
+				elif section == 'Date':
 					pubdate = self._convert_date_text(detail_node[0].tail.strip())
+                    #self.log.info(pubdate)
 			except:
 				self.log.exception('Error parsing section %r for url: %r' % (section, self.url) )
 
@@ -179,7 +184,7 @@ class Worker(Thread): # Get details
 		append_contents = cfg.plugin_prefs[cfg.STORE_NAME].get(cfg.KEY_APPEND_CONTENTS, default_append_contents)
 		comments = ''
 		if append_contents:
-			contents_node = root.xpath('//div[@id="ContentBox"]/ul')
+			contents_node = root.xpath('//div[@class="ContentBox"][2]/ul')
 			if contents_node:
 				contents = tostring(contents_node[0], method='html')
 				comments += contents
@@ -187,7 +192,7 @@ class Worker(Thread): # Get details
 			return comments
 
 	def parse_cover(self, root):
-		img_src = root.xpath('//div[@id="MetadataBox"]/table/tr[1]/td[1]/a/img/@src')
+		img_src = root.xpath('//div[@id="content"]//table/tr[1]/td[1]/a/img/@src')
 		if img_src:
 			page_url = img_src[0]
 			self.plugin.cache_identifier_to_cover_url(self.isfdb_id, page_url)
