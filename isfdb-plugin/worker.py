@@ -92,7 +92,7 @@ class Worker(Thread): # Get details
         
 		detail_nodes = root.xpath('//div[@id="content"]//td[@class="pubheader"]/ul/li')
 		if not detail_nodes:
-			detail_nodes = root.xpath('//div[@id="content"]/ul/li') # no table (on records with no image)
+			detail_nodes = root.xpath('//div[@id="content"]/div/ul/li') # no table (on records with no image)
 
 		for detail_node in detail_nodes:
 			section = detail_node[0].text_content().strip().rstrip(':')
